@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.teeniv.codefobe_user_information"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.teeniv.codefobe_user_information"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 

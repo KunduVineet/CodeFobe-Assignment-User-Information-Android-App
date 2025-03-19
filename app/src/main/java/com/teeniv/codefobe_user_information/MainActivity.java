@@ -1,18 +1,20 @@
 package com.teeniv.codefobe_user_information;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
 import com.bumptech.glide.Glide;
-import org.json.JSONArray;
+
 import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,15 +22,9 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private ImageView avatarImageView;
-    private TextView idTextView;
-    private TextView uidTextView;
-    private TextView passwordTextView;
-    private TextView firstNameTextView;
-    private TextView lastNameTextView;
-    private TextView usernameTextView;
-    private TextView emailTextView;
-    private Button previousButton;
-    private Button nextButton;
+    private TextView idTextView, uidTextView, passwordTextView, firstNameTextView, lastNameTextView, usernameTextView, emailTextView;
+    private Button previousButton, nextButton;
+    private ProgressBar progressBar;
 
     private final List<JSONObject> usersList = new ArrayList<>();
     private int currentIndex = 0;
@@ -50,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
         emailTextView = findViewById(R.id.email_field);
         previousButton = findViewById(R.id.previous_button);
         nextButton = findViewById(R.id.next_button);
+        progressBar = findViewById(R.id.progress_bar); // Add a ProgressBar in XML layout
 
         // Initialize Volley RequestQueue
         requestQueue = Volley.newRequestQueue(this);
@@ -58,78 +55,82 @@ public class MainActivity extends AppCompatActivity {
         fetchUsers();
 
         // Button click listeners
-        previousButton.setOnClickListener(v -> {
-            if (currentIndex > 0) {
-                currentIndex--;
-                displayUser();
-            }
-            updateButtonStates();
-        });
-
-        nextButton.setOnClickListener(v -> {
-            if (currentIndex < usersList.size() - 1) {
-                currentIndex++;
-                displayUser();
-            }
-            updateButtonStates();
-        });
+        previousButton.setOnClickListener(v -> navigateUser(-1));
+        nextButton.setOnClickListener(v -> navigateUser(1));
     }
 
     private void fetchUsers() {
         String url = "https://random-data-api.com/api/users/random_user?size=80";
+
+        progressBar.setVisibility(View.VISIBLE); // Show loading indicator
+
         JsonArrayRequest request = new JsonArrayRequest(
                 Request.Method.GET,
                 url,
                 null,
-                new Response.Listener<JSONArray>() {
-                    @Override
-                    public void onResponse(JSONArray response) {
-                        usersList.clear();
-                        for (int i = 0; i < response.length(); i++) {
-                            try {
-                                usersList.add(response.getJSONObject(i));
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
+                response -> {
+                    usersList.clear();
+                    for (int i = 0; i < response.length(); i++) {
+                        try {
+                            usersList.add(response.getJSONObject(i));
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
-                        currentIndex = 0;
-                        displayUser();
-                        updateButtonStates();
                     }
+                    currentIndex = 0;
+                    displayUser();
+                    updateButtonStates();
+                    progressBar.setVisibility(View.GONE); // Hide loading indicator
                 },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        // Handle error (e.g., log it or show a Toast)
-                        error.printStackTrace();
-                    }
+                error -> {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "Failed to fetch users. Check internet connection.", Toast.LENGTH_SHORT).show();
                 }
         );
+
         requestQueue.add(request);
     }
 
+    @SuppressLint("SetTextI18n")
     private void displayUser() {
         if (!usersList.isEmpty()) {
             try {
                 JSONObject user = usersList.get(currentIndex);
-                idTextView.setText("ID: " + user.getInt("id"));
-                uidTextView.setText("UID: " + user.getString("uid"));
-                passwordTextView.setText("Password: " + user.getString("password"));
-                firstNameTextView.setText("First Name: " + user.getString("first_name"));
-                lastNameTextView.setText("Last Name: " + user.getString("last_name"));
-                usernameTextView.setText("Username: " + user.getString("username"));
-                emailTextView.setText("Email: " + user.getString("email"));
+                idTextView.setText("ID: " + getSafeString(user, "id"));
+                uidTextView.setText("UID: " + getSafeString(user, "uid"));
+                passwordTextView.setText("Password: " + getSafeString(user, "password"));
+                firstNameTextView.setText("First Name: " + getSafeString(user, "first_name"));
+                lastNameTextView.setText("Last Name: " + getSafeString(user, "last_name"));
+                usernameTextView.setText("Username: " + getSafeString(user, "username"));
+                emailTextView.setText("Email: " + getSafeString(user, "email"));
+
+                // Load avatar using Glide
                 Glide.with(this)
-                        .load(user.getString("avatar"))
+                        .load(getSafeString(user, "avatar"))
+                        .placeholder(R.drawable.placeholder_avatar) // Add a default placeholder
+                        .error(R.drawable.error_avatar) // Add an error image
                         .into(avatarImageView);
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
+    private void navigateUser(int direction) {
+        if ((direction == -1 && currentIndex > 0) || (direction == 1 && currentIndex < usersList.size() - 1)) {
+            currentIndex += direction;
+            displayUser();
+            updateButtonStates();
+        }
+    }
+
     private void updateButtonStates() {
         previousButton.setEnabled(currentIndex > 0);
         nextButton.setEnabled(currentIndex < usersList.size() - 1);
+    }
+
+    private String getSafeString(JSONObject json, String key) {
+        return json.has(key) ? json.optString(key, "N/A") : "N/A";
     }
 }
